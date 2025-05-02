@@ -97,7 +97,7 @@ func ProcessNotification(notificationBody []byte, sourceIP string, config paymen
 	}
 
 	// Validate with Bob Pay
-	if err := ValidateWithBobPay(notificationBody, sandbox); err != nil {
+	if err := ValidateWithBobPay(notificationBody, config, sandbox); err != nil {
 		return err
 	}
 
