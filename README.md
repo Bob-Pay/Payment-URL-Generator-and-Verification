@@ -27,11 +27,11 @@ paymentUrlGenerator/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/awesomeProject.git
+   git clone https://github.com/LeoduPlooyBob/paymentUrlGenerator.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd awesomeProject
+   cd paymentUrlGenerator
    ```
 3. Initialize the Go module (if not already done):
    ```bash
@@ -45,7 +45,7 @@ paymentUrlGenerator/
 Use the `paymenturl.GeneratePayURL` function to create a payment URL.
 
 ```go
-import "awesomeProject/paymenturl"
+import "paymentUrlGenerator/paymenturl"
 
 kvPairs := []paymenturl.KVPair{
     {Key: "amount", Value: "499.99"},
@@ -62,7 +62,7 @@ fmt.Println("Payment URL:", url)
 Use the `verifypayment.ProcessNotification` function to verify and process notifications.
 
 ```go
-import "awesomeProject/verifypayment"
+import "paymentUrlGenerator/verifypayment"
 
 notificationBody := []byte(`{...}`) // JSON notification from BobPay
 sourceIP := "13.245.58.93"
