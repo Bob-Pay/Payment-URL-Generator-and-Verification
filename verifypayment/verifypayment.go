@@ -7,47 +7,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Bob-Pay/Payment-URL-Generator-and-Verification/paymentdetails"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
-// Allowed IPs for Bob Pay	dev				sandbox
-var allowedIPs = []string{"13.246.101.163", "13.245.58.93"}
-
-// Notification represents the structure of the notification body.
-type Notification struct {
-	ID                   int     `json:"id"`
-	UUID                 string  `json:"uuid"`
-	ShortReference       string  `json:"short_reference"`
-	FromBank             string  `json:"from_bank"`
-	CustomPaymentID      string  `json:"custom_payment_id"`
-	NotifyURL            string  `json:"notify_url"`
-	SuccessURL           string  `json:"success_url"`
-	PendingURL           string  `json:"pending_url"`
-	CancelURL            string  `json:"cancel_url"`
-	ItemName             string  `json:"item_name"`
-	ItemDescription      string  `json:"item_description"`
-	Amount               float64 `json:"amount"`
-	Signature            string  `json:"signature"`
-	TimeCreated          string  `json:"time_created"`
-	AccountID            int     `json:"account_id"`
-	AccountCode          string  `json:"account_code"`
-	TransactingAsEmail   string  `json:"transacting_as_email"`
-	TransactingAsMobile  string  `json:"transacting_as_mobile_number"`
-	Status               string  `json:"status"`
-	RecipientAccountCode string  `json:"recipient_account_code"`
-	RecipientAccountID   int     `json:"recipient_account_id"`
-	MobileNumber         string  `json:"mobile_number"`
-	Email                string  `json:"email"`
-	IsTest               bool    `json:"is_test"`
-	PaymentMethod        string  `json:"payment_method"`
-}
-
 // VerifySourceIP checks if the source IP is allowed.
-func VerifySourceIP(ip string) bool {
-	for _, allowedIP := range allowedIPs {
+func VerifySourceIP(ip string, config paymentdetails.ValidationConfig) bool {
+	for _, allowedIP := range config.AllowedIPs {
 		if ip == allowedIP {
 			return true
 		}
@@ -56,7 +25,7 @@ func VerifySourceIP(ip string) bool {
 }
 
 // VerifySignature verifies the signature of the notification.
-func VerifySignature(notification Notification, passphrase string) bool {
+func VerifySignature(notification paymentdetails.PaymentNotification, passphrase string) bool {
 	params := []string{
 		"recipient_account_code=" + url.QueryEscape(strings.ReplaceAll(notification.RecipientAccountCode, " ", "+")),
 		"custom_payment_id=" + url.QueryEscape(strings.ReplaceAll(notification.CustomPaymentID, " ", "+")),
@@ -85,10 +54,10 @@ func ValidateAmount(receivedAmount, expectedAmount float64) bool {
 }
 
 // ValidateWithBobPay validates the payment with Bob Pay.
-func ValidateWithBobPay(notificationBody []byte, sandbox bool) error {
-	bobPayUrl := "https://api.bobpay.co.za/payments/intents/validate"
+func ValidateWithBobPay(notificationBody []byte, config paymentdetails.ValidationConfig, sandbox bool) error {
+	bobPayUrl := config.BobPayValidationURL
 	if sandbox {
-		bobPayUrl = "https://api.sandbox.bobpay.co.za/payments/intents/validate"
+		bobPayUrl = strings.Replace(bobPayUrl, "api.bobpay.co.za", "api.sandbox.bobpay.co.za", 1)
 	}
 
 	resp, err := http.Post(bobPayUrl, "application/json", bytes.NewBuffer(notificationBody))
@@ -96,9 +65,7 @@ func ValidateWithBobPay(notificationBody []byte, sandbox bool) error {
 		return err
 	}
 	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-		}
+		_ = Body.Close()
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
@@ -107,26 +74,25 @@ func ValidateWithBobPay(notificationBody []byte, sandbox bool) error {
 	return nil
 }
 
-// ProcessNotification processes the payment notification.
-func ProcessNotification(notificationBody []byte, sourceIP string, passphrase string, expectedAmount float64, sandbox bool) error {
+func ProcessNotification(notificationBody []byte, sourceIP string, config paymentdetails.ValidationConfig, sandbox bool) error {
 	// Verify source IP
-	if !VerifySourceIP(sourceIP) {
+	if !VerifySourceIP(sourceIP, config) {
 		return errors.New("invalid source IP")
 	}
 
 	// Parse notification body
-	var notification Notification
+	var notification paymentdetails.PaymentNotification
 	if err := json.Unmarshal(notificationBody, &notification); err != nil {
 		return err
 	}
 
 	// Verify signature
-	if !VerifySignature(notification, passphrase) {
+	if !VerifySignature(notification, config.Passphrase) {
 		return errors.New("invalid signature")
 	}
 
 	// Verify amount
-	if !ValidateAmount(notification.Amount, expectedAmount) {
+	if config.ExpectedAmount != nil && !ValidateAmount(notification.Amount, *config.ExpectedAmount) {
 		return errors.New("amount mismatch")
 	}
 
