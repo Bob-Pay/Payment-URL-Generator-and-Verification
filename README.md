@@ -20,7 +20,6 @@ paymentUrlGenerator/
 ├── verifypayment/
 │   ├── verifypayment.go
 │   ├── verifypayment_test.go
-├── main.go (optional for examples)
 ```
 
 ## Installation
